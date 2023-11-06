@@ -12,12 +12,7 @@ import time
 # Globals
 ################################################################################
 
-plugin_id = "com.schollnick.indigoplugin.BatteryMonitor"
-plugin_name = "BatteryMonitor"
-plugin_manual = ""
-
 current_device_version = 4
-
 
 ################################################################################
 class Plugin(indigo.PluginBase):
@@ -55,54 +50,35 @@ class Plugin(indigo.PluginBase):
         self.debugLog("Debug Mode is On (Only recommended for Testing Purposes)")
 
     ########################################
-    def shutdown(self):
-        # Nothing to do since deviceStopComm will be called for each of our
-        # devices and that's how we'll clean up
-        pass
-
-    def manualDeviceUpdate(self, action):
-        #
-        # Update requested via Trigger Action
-        #
-        pass
-
-    def manualDeviceUpdate_menutrigger(self):
-        #
-        # Update requested via Menu item
-        #
-        pass
-
-    ########################################
-    def verify_preference(self, preferencekey, default_value):
-        if preferencekey in self.pluginPrefs:
+    def verify_preference(self, preference_key, default_value):
+        if preference_key in self.pluginPrefs:
             return
         else:
-            self.pluginPrefs[preferencekey] = default_value
+            self.pluginPrefs[preference_key] = default_value
 
-    def verify_device_properties(self, dev, propertyname, boolean=False, default_value=""):
+    @staticmethod
+    def verify_device_properties(dev, property_name, boolean=False, default_value=""):
         newProps = dev.pluginProps  # dev.globalProps[plugin_id]
-        if propertyname in newProps:
+        if property_name in newProps:
             return
         else:
             if boolean:
-                newProps[propertyname] = True
+                newProps[property_name] = True
             else:
-                newProps[propertyname] = default_value
+                newProps[property_name] = default_value
 
             dev.replacePluginPropsOnServer(newProps)
 
-    def update_device_property(self, dev, propertyname, new_value):
+    @staticmethod
+    def update_device_property(dev, property_name, new_value):
         newProps = dev.pluginProps
-        newProps.update({propertyname: new_value})
+        newProps.update({property_name: new_value})
         dev.replacePluginPropsOnServer(newProps)
         return None
 
     ########################################
 
     def deviceStartComm(self, dev):
-        #
-        #
-        #
         self.verify_device_properties(dev, "device_version", boolean=False, default_value="000")
         self.verify_device_properties(dev, "Model", boolean=False, default_value="")
         self.verify_device_properties(dev, "ACPower", boolean=True)
@@ -112,9 +88,6 @@ class Plugin(indigo.PluginBase):
         if current_device_version != dv:
             dev.stateListOrDisplayStateIdChanged()
             self.update_device_property(dev, "device_version", new_value=current_device_version)
-        # indigo.server.log ("\tUpdated Device States")
-
-        # indigo.server.log ("Processing Device - %s" % dev.name)
 
         if dev.deviceTypeId == "BatteryMonitor":
             self.monitors.append(dev.id)
@@ -123,11 +96,11 @@ class Plugin(indigo.PluginBase):
                 self.monitors = self.monitors[0]
 
     def deviceStopComm(self, dev):
-        # indigo.server.log ("Removing %s" % dev.name)
         if dev.deviceTypeId == "BatteryMonitor":
             self.monitors.remove(dev.id)
 
-    def get_battery_status(self):
+    @staticmethod
+    def get_battery_status():
         proc = subprocess.Popen(['pmset', '-g', 'batt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         out = out.decode('utf8').split("\n")
@@ -143,19 +116,19 @@ class Plugin(indigo.PluginBase):
         charging = data[1].find("discharging") == -1
         if not charging:
             ctime = data[2][0:data[2].find(":") + 3].strip()
-            chours = data[2][0:ctime.find(":") + 1]
-            cmin = data[2][ctime.find(":") + 2:ctime.find(":") + 4]
+            c_hours = data[2][0:ctime.find(":") + 1]
+            c_min = data[2][ctime.find(":") + 2:ctime.find(":") + 4]
         else:
             ctime = 0
-            chours = 0
-            cmin = 0
+            c_hours = 0
+            c_min = 0
 
-        return power_status, ups_model, charging, percentage, ctime, chours, cmin
+        return power_status, ups_model, charging, percentage, ctime, c_hours, c_min
 
     def runConcurrentThread(self):
         try:
             while True:
-                power_status, ups_model, charging, percentage, timestring, hours, cmin = self.get_battery_status()
+                power_status, ups_model, charging, percentage, timestring, hours, c_min = self.get_battery_status()
                 if self.pluginPrefs["SupressLogging"] and charging:
                     pass
                 else:
@@ -185,8 +158,8 @@ class Plugin(indigo.PluginBase):
                         if BatteryMonitor.states["BatteryLevel"] != percentage:
                             BatteryMonitor.updateStateOnServer("BatteryLevel", percentage)
 
-                        if BatteryMonitor.states["BatteryTimeRemaining"] != int(hours) * 60 + int(cmin):
-                            BatteryMonitor.updateStateOnServer("BatteryTimeRemaining", int(hours) * 60 + int(cmin))
+                        if BatteryMonitor.states["BatteryTimeRemaining"] != int(hours) * 60 + int(c_min):
+                            BatteryMonitor.updateStateOnServer("BatteryTimeRemaining", int(hours) * 60 + int(c_min))
 
                         if BatteryMonitor.states["PowerSource"] != power_status:
                             BatteryMonitor.updateStateOnServer("PowerSource", power_status)

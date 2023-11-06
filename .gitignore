@@ -103,3 +103,5 @@ ENV/
 BatteryMonitor.indigoplugin/.idea/
 
 .DS_Store
+
+.idea/
