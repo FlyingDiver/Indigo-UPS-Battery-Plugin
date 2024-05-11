@@ -1,108 +1,43 @@
 <?xml version="1.0"?>
 <PluginConfig>
-		<Field type="menu" id="Timing" defaultValue="5">
-		<Label>Check Battery 
-Level, Every:</Label>
-			<List>
-				<Option value="1">Minute</Option>
-				<Option value="2">2 Minutes</Option>
-				<Option value="5">5 Minutes</Option>
-				<Option value="10">10 Minutes</Option>
-				<Option value="15">15 Minutes</Option>
-				<Option value="30">30 Minutes</Option>
-				<Option value="45">45 Minutes</Option>
-				<Option value="60">1 Hour</Option>
-				<Option value="180">3 Hours</Option>
-				<Option value="360">6 Hours</Option>
-			</List>
-		</Field>
+	<Field type="menu" id="Timing" defaultValue="5">
+	<Label>Check Battery Level, Every:</Label>
+		<List>
+			<Option value="1">Minute</Option>
+			<Option value="2">2 Minutes</Option>
+			<Option value="5">5 Minutes</Option>
+			<Option value="10">10 Minutes</Option>
+			<Option value="15">15 Minutes</Option>
+			<Option value="30">30 Minutes</Option>
+			<Option value="45">45 Minutes</Option>
+			<Option value="60">1 Hour</Option>
+			<Option value="180">3 Hours</Option>
+			<Option value="360">6 Hours</Option>
+		</List>
+	</Field>
 
-		<Field type="menu" id="PowerFailureTiming" defaultValue="1">
-		<Label>On Power Failure,  
-Check Every:</Label>
-			<List>
-				<Option value="1">Minute</Option>
-				<Option value="2">2 Minutes</Option>
-				<Option value="3">3 Minutes</Option>
-				<Option value="4">4 Minutes</Option>
-				<Option value="5">5 Minutes</Option>
-			</List>
-		</Field>
+	<Field type="menu" id="PowerFailureTiming" defaultValue="1">
+	<Label>On Power Failure, Check Every:</Label>
+		<List>
+			<Option value="1">Minute</Option>
+			<Option value="2">2 Minutes</Option>
+			<Option value="3">3 Minutes</Option>
+			<Option value="4">4 Minutes</Option>
+			<Option value="5">5 Minutes</Option>
+		</List>
+	</Field>
 
+	<Field id="simpleSeparator1" type="separator" />
 
-		<Field type="checkbox" id="SupressLogging" defaultValue="Checked">
-			<Label>Only Write to Log 
-during Power Failures</Label>
-		</Field>
-
-		<Field id="simpleSeparator3" type="separator" />
-
-		<Field type="checkbox" id="EnableEmail">
-			<Label>Send Email on 
-Loss of Power</Label>
-		</Field>
-
-		<Field id="EmailAddresses" type="textfield" enabledBindingId="EnableEmail">
-			<Label>Send Emails to: 
-(Seperate multiple 
-addresses w/commas)</Label>
-		</Field>
-
-		<Field id="simpleSeparator1" type="separator" />
-		
-		<Field type="checkbox" id="SendEmail_Point1">
-			<Label>Send Email when 
-Battery Level Reaches:</Label>
-		</Field>
-
-		<Field type="menu" id="Point1" defaultValue="60" enabledBindingId="SendEmail_Point1">
-		<Label>Battery Percentage
-(30-90%):</Label>
-			<List>
-				<Option value="20">20%</Option>
-				<Option value="25">25%</Option>
-				<Option value="30">30%</Option>
-				<Option value="35">35%</Option>
-				<Option value="40">40%</Option>
-				<Option value="45">45%</Option>
-				<Option value="50">50%</Option>
-				<Option value="55">55%</Option>
-				<Option value="60">60%</Option>
-				<Option value="65">65%</Option>
-				<Option value="70">70%</Option>
-				<Option value="75">75%</Option>
-				<Option value="80">80%</Option>
-				<Option value="85">85%</Option>
-				<Option value="90">90%</Option>
-			</List>
-		</Field>
-
-		<Field id="simpleSeparator2" type="separator" />
-
-		<Field type="checkbox" id="SendEmail_Point2">
-			<Label>Send Email when 
-Battery Level Reaches:</Label>
-		</Field>
-
-		<Field type="menu" id="Point2" defaultValue="40" enabledBindingId="SendEmail_Point2" >
-		<Label>Battery Percentage
-(30-90%):</Label>
-			<List>
-				<Option value="20">20%</Option>
-				<Option value="25">25%</Option>
-				<Option value="30">30%</Option>
-				<Option value="35">35%</Option>
-				<Option value="40">40%</Option>
-				<Option value="45">45%</Option>
-				<Option value="50">50%</Option>
-				<Option value="55">55%</Option>
-				<Option value="60">60%</Option>
-				<Option value="65">65%</Option>
-				<Option value="70">70%</Option>
-				<Option value="75">75%</Option>
-				<Option value="80">80%</Option>
-				<Option value="85">85%</Option>
-				<Option value="90">90%</Option>
-			</List>
-		</Field>
+	<Field id="logLevel" type="menu" defaultValue="20">
+        <Label>Event Logging Level:</Label>
+        <List>
+            <Option value="5">Extra Debugging Messages</Option>
+            <Option value="10">Debugging Messages</Option>
+            <Option value="20">Informational Messages</Option>
+            <Option value="30">Warning Messages</Option>
+            <Option value="40">Error Messages</Option>
+            <Option value="50">Critical Errors Only</Option>
+        </List>
+    </Field>
 </PluginConfig>

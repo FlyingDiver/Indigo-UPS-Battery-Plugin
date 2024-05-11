@@ -3,14 +3,14 @@
 ####################
 # Copyright (c) 2011, Benjamin Schollnick. All rights reserved.
 # http://www.schollnick.net/Wordpress
-
+#
+# Copyright (c) 2024, Joe Keenan
+#
 ################################################################################
+
 import subprocess
 import time
-
-################################################################################
-# Globals
-################################################################################
+import logging
 
 current_device_version = 4
 
@@ -18,38 +18,25 @@ current_device_version = 4
 class Plugin(indigo.PluginBase):
     ########################################
     def __init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs):
-        """
-        Initialization of Battery Monitor
-        """
         indigo.PluginBase.__init__(self, pluginId, pluginDisplayName, pluginVersion, pluginPrefs)
-        self.debug = pluginPrefs.get("showDebugInfo", False)
-        #
-        # Perform a version check on the Find My iDevices plugin itself
-        #
-        # self.VersionCheck ()
+
+        pfmt = logging.Formatter('%(asctime)s.%(msecs)03d\t[%(levelname)8s] %(name)20s.%(funcName)-25s%(msg)s', datefmt='%Y-%m-%d %H:%M:%S')
+        self.plugin_file_handler.setFormatter(pfmt)
+        self.logLevel = int(pluginPrefs.get("logLevel", logging.INFO))
+        self.indigo_log_handler.setLevel(self.logLevel)
+        self.plugin_file_handler.setLevel(self.logLevel)
+        self.pluginPrefs = pluginPrefs
+
         self.monitors = []
         self.verify_preference("Timing", 5)
         self.verify_preference("PowerFailureTiming", 1)
-        self.verify_preference("SupressLogging", True)
 
-    ########################################
-    def __del__(self):
-        indigo.PluginBase.__del__(self)
-
-    ########################################
-    # Built-in control methods
-    ########################################
     def startup(self):
-        """
-        Startup and initialization code
-        """
-        #
-        # Load settings from Indigo Database
-        #
-        self.debug = self.pluginPrefs.get("showDebugInfo", False)
-        self.debugLog("Debug Mode is On (Only recommended for Testing Purposes)")
+        self.logger.debug("startup called")
 
-    ########################################
+    def shutdown(self):
+        self.logger.debug("shutdown called")
+
     def verify_preference(self, preference_key, default_value):
         if preference_key in self.pluginPrefs:
             return
@@ -99,11 +86,18 @@ class Plugin(indigo.PluginBase):
         if dev.deviceTypeId == "BatteryMonitor":
             self.monitors.remove(dev.id)
 
-    @staticmethod
-    def get_battery_status():
+    def closedPrefsConfigUi(self, valuesDict, userCancelled):
+        if not userCancelled:
+            self.logger.threaddebug(f"closedPrefsConfigUi: valuesDict = {valuesDict}")
+            self.logLevel = int(self.pluginPrefs.get("logLevel", logging.INFO))
+            self.indigo_log_handler.setLevel(self.logLevel)
+            self.logger.debug(f"logLevel = {self.logLevel}")
+
+    def get_battery_status(self):
         proc = subprocess.Popen(['pmset', '-g', 'batt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = proc.communicate()
         out = out.decode('utf8').split("\n")
+        self.logger.debug(f"get_battery_status() = {out}")
 
         if len(out) == 2:
             return "AC Power - No Battery", "No Battery or UPS", False, 0, 0, 0, 0
@@ -129,42 +123,36 @@ class Plugin(indigo.PluginBase):
         try:
             while True:
                 power_status, ups_model, charging, percentage, timestring, hours, c_min = self.get_battery_status()
-                if self.pluginPrefs["SupressLogging"] and charging:
-                    pass
-                else:
-                    indigo.server.log(f"\tPower Status    - {power_status}")
-                    indigo.server.log(f"\tUPS Model       - {ups_model}")
-                    indigo.server.log(f"\tCharging Status - {charging}")
-                    indigo.server.log(f"\tBattery Charge  - {percentage:>02}")
-                    if charging:
-                        indigo.server.log(f"Refreshing in {self.pluginPrefs['Timing']} Minutes")
-                    else:
-                        indigo.server.log(f"Refreshing in {self.pluginPrefs['PowerFailureTiming']} Minutes")
+
+                if not charging:
+                    self.logger.info(f"\tPower Status    - {power_status}")
+                    self.logger.info(f"\tUPS Model       - {ups_model}")
+                    self.logger.info(f"\tCharging Status - {charging}")
+                    self.logger.info(f"\tBattery Charge  - {percentage:>02}")
 
                 if self.monitors == {}:
-                    indigo.server.log("\tNo Battery & UPS Monitor device defined.")
+                    self.logger.info("No Battery & UPS Monitor device defined.")
                 else:
-                    if len(self.monitors) >= 1:
-                        BatteryMonitor = indigo.devices[self.monitors[0]]
-                        if BatteryMonitor.states["Model"] != ups_model:
-                            BatteryMonitor.updateStateOnServer("Model", ups_model)
+                    battery_monitor = indigo.devices[self.monitors[0]]
+                    if battery_monitor.states["Model"] != ups_model:
+                        battery_monitor.updateStateOnServer("Model", ups_model)
 
-                        if BatteryMonitor.states["ACPower"] != power_status:
-                            BatteryMonitor.updateStateOnServer("ACPower", power_status)
+                    if battery_monitor.states["ACPower"] != power_status:
+                        battery_monitor.updateStateOnServer("ACPower", power_status)
 
-                        if BatteryMonitor.states["Charging"] != charging:
-                            BatteryMonitor.updateStateOnServer("Charging", charging)
+                    if battery_monitor.states["Charging"] != charging:
+                        battery_monitor.updateStateOnServer("Charging", charging)
 
-                        if BatteryMonitor.states["BatteryLevel"] != percentage:
-                            BatteryMonitor.updateStateOnServer("BatteryLevel", percentage)
+                    if battery_monitor.states["BatteryLevel"] != percentage:
+                        battery_monitor.updateStateOnServer("BatteryLevel", percentage)
 
-                        if BatteryMonitor.states["BatteryTimeRemaining"] != int(hours) * 60 + int(c_min):
-                            BatteryMonitor.updateStateOnServer("BatteryTimeRemaining", int(hours) * 60 + int(c_min))
+                    if battery_monitor.states["BatteryTimeRemaining"] != int(hours) * 60 + int(c_min):
+                        battery_monitor.updateStateOnServer("BatteryTimeRemaining", int(hours) * 60 + int(c_min))
 
-                        if BatteryMonitor.states["PowerSource"] != power_status:
-                            BatteryMonitor.updateStateOnServer("PowerSource", power_status)
+                    if battery_monitor.states["PowerSource"] != power_status:
+                        battery_monitor.updateStateOnServer("PowerSource", power_status)
 
-                        BatteryMonitor.updateStateOnServer("TimeDateStamp", time.ctime())
+                    battery_monitor.updateStateOnServer("TimeDateStamp", time.ctime())
 
                 if charging:
                     self.sleep(int(self.pluginPrefs["Timing"]) * 60)
@@ -172,4 +160,4 @@ class Plugin(indigo.PluginBase):
                     self.sleep(int(self.pluginPrefs["PowerFailureTiming"]) * 60)
 
         except self.StopThread:
-            indigo.server.log("Stopping Plugin")
+            self.logger.debug("Stopping Plugin")
