@@ -12,7 +12,7 @@ import subprocess
 import time
 import logging
 
-current_device_version = 4
+CURRENT_DEVICE_VERSION = 4
 
 ################################################################################
 class Plugin(indigo.PluginBase):
@@ -66,21 +66,23 @@ class Plugin(indigo.PluginBase):
     ########################################
 
     def deviceStartComm(self, dev):
+        self.verify_device_properties(dev, "Status", boolean=False, default_value="Unknown")
         self.verify_device_properties(dev, "device_version", boolean=False, default_value="000")
         self.verify_device_properties(dev, "Model", boolean=False, default_value="")
         self.verify_device_properties(dev, "ACPower", boolean=True)
         self.verify_device_properties(dev, "PowerSource", boolean=False, default_value="")
 
-        dv = int(dev.pluginProps["device_version"])
-        if current_device_version != dv:
-            dev.stateListOrDisplayStateIdChanged()
+        device_version = int(dev.pluginProps["device_version"])
+        if device_version != CURRENT_DEVICE_VERSION:
             self.update_device_property(dev, "device_version", new_value=current_device_version)
 
         if dev.deviceTypeId == "BatteryMonitor":
-            self.monitors.append(dev.id)
-            if len(self.monitors) >= 2:
-                self.errorLog("Only One Battery & UPS Monitor can be used.")
-                self.monitors = self.monitors[0]
+            if len(self.monitors) >= 1:
+                self.errorLog("Only One Battery & UPS Monitor device can be used.")
+            else:
+                self.monitors.append(dev.id)
+
+        dev.stateListOrDisplayStateIdChanged()
 
     def deviceStopComm(self, dev):
         if dev.deviceTypeId == "BatteryMonitor":
@@ -93,66 +95,67 @@ class Plugin(indigo.PluginBase):
             self.indigo_log_handler.setLevel(self.logLevel)
             self.logger.debug(f"logLevel = {self.logLevel}")
 
-    def get_battery_status(self):
-        proc = subprocess.Popen(['pmset', '-g', 'batt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = proc.communicate()
-        out = out.decode('utf8').split("\n")
-        self.logger.debug(f"get_battery_status() = {out}")
-
-        if len(out) == 2:
-            return "AC Power - No Battery", "No Battery or UPS", False, 0, 0, 0, 0
-
-        power_status = out[0].split("'")[1]
-        data = out[1].split("\t")
-        ups_model = data[0]
-        data = data[1].split(";")
-        percentage = data[0][0:-1]  # data[1][0:percent_locale]
-        charging = data[1].find("discharging") == -1
-        if not charging:
-            ctime = data[2][0:data[2].find(":") + 3].strip()
-            c_hours = data[2][0:ctime.find(":") + 1]
-            c_min = data[2][ctime.find(":") + 2:ctime.find(":") + 4]
-        else:
-            ctime = 0
-            c_hours = 0
-            c_min = 0
-
-        return power_status, ups_model, charging, percentage, ctime, c_hours, c_min
-
     def runConcurrentThread(self):
         try:
             while True:
-                power_status, ups_model, charging, percentage, timestring, hours, c_min = self.get_battery_status()
-
-                if not charging:
-                    self.logger.info(f"\tPower Status    - {power_status}")
-                    self.logger.info(f"\tUPS Model       - {ups_model}")
-                    self.logger.info(f"\tCharging Status - {charging}")
-                    self.logger.info(f"\tBattery Charge  - {percentage:>02}")
 
                 if self.monitors == {}:
                     self.logger.info("No Battery & UPS Monitor device defined.")
+                    self.sleep(int(self.pluginPrefs["Timing"]) * 60)
+                    continue
                 else:
-                    battery_monitor = indigo.devices[self.monitors[0]]
-                    if battery_monitor.states["Model"] != ups_model:
-                        battery_monitor.updateStateOnServer("Model", ups_model)
+                    battery_monitor_device = indigo.devices[self.monitors[0]]
 
-                    if battery_monitor.states["ACPower"] != power_status:
-                        battery_monitor.updateStateOnServer("ACPower", power_status)
+                # get battery status
 
-                    if battery_monitor.states["Charging"] != charging:
-                        battery_monitor.updateStateOnServer("Charging", charging)
+                proc = subprocess.Popen(['pmset', '-g', 'batt'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                out, err = proc.communicate()
+                out = out.decode('utf8').split("\n")
+                self.logger.debug(f"get_battery_status() = {out}")
 
-                    if battery_monitor.states["BatteryLevel"] != percentage:
-                        battery_monitor.updateStateOnServer("BatteryLevel", percentage)
+                if len(out) == 2:       # no UPS connected
+                    battery_monitor_device.updateStateOnServer("Status", "No UPS")
+                    self.sleep(int(self.pluginPrefs["Timing"]) * 60)
+                    continue
 
-                    if battery_monitor.states["BatteryTimeRemaining"] != int(hours) * 60 + int(c_min):
-                        battery_monitor.updateStateOnServer("BatteryTimeRemaining", int(hours) * 60 + int(c_min))
+                power_status = out[0].split("'")[1]
+                battery_monitor_device.updateStateOnServer("Status", power_status)
 
-                    if battery_monitor.states["PowerSource"] != power_status:
-                        battery_monitor.updateStateOnServer("PowerSource", power_status)
+                data = out[1].split("\t")
+                ups_model = data[0]
+                data = data[1].split(";")
+                percentage = data[0][0:-1]  # data[1][0:percent_locale]
+                charging = data[1].find("discharging") == -1
+                if not charging:
+                    ctime = data[2][0:data[2].find(":") + 3].strip()
+                    c_hours = data[2][0:ctime.find(":") + 1]
+                    c_min = data[2][ctime.find(":") + 2:ctime.find(":") + 4]
+                    time_remaining = int(c_hours) * 60 + int(c_min)
+                else:
+                    ctime = 0
+                    c_hours = 0
+                    c_min = 0
+                    time_remaining = 0
 
-                    battery_monitor.updateStateOnServer("TimeDateStamp", time.ctime())
+                if battery_monitor_device.states["Model"] != ups_model:
+                    battery_monitor_device.updateStateOnServer("Model", ups_model)
+
+                if battery_monitor_device.states["ACPower"] != power_status:
+                    battery_monitor_device.updateStateOnServer("ACPower", power_status)
+
+                if battery_monitor_device.states["Charging"] != charging:
+                    battery_monitor_device.updateStateOnServer("Charging", charging)
+
+                if battery_monitor_device.states["BatteryLevel"] != percentage:
+                    battery_monitor_device.updateStateOnServer("BatteryLevel", percentage)
+
+                if battery_monitor_device.states["BatteryTimeRemaining"] != time_remaining:
+                    battery_monitor_device.updateStateOnServer("BatteryTimeRemaining", time_remaining)
+
+                if battery_monitor_device.states["PowerSource"] != power_status:
+                    battery_monitor_device.updateStateOnServer("PowerSource", power_status)
+
+                battery_monitor_device.updateStateOnServer("TimeDateStamp", time.ctime())
 
                 if charging:
                     self.sleep(int(self.pluginPrefs["Timing"]) * 60)

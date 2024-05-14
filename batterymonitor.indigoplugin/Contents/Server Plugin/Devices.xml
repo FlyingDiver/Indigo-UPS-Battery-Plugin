@@ -10,15 +10,21 @@
 			</Field>
 		</ConfigUI>
 
-		<UiDisplayStateId>BatteryLevel</UiDisplayStateId>
+		<UiDisplayStateId>Status</UiDisplayStateId>
 
 		<States>
+			<State id="Status">
+				<ValueType>String</ValueType>
+				<TriggerLabel>UPS Status</TriggerLabel>
+				<ControlPageLabel>UPS Status</ControlPageLabel>
+			</State>
+		
 			<State id="Model">
 				<ValueType>String</ValueType>
 				<TriggerLabel>The Model of Battery or UPS</TriggerLabel>
 				<ControlPageLabel>The Model of Battery or UPS</ControlPageLabel>
 			</State>
-		
+
 			<State id="ACPower">
 				<ValueType>Boolean</ValueType>
 				<TriggerLabel>AC Power is available</TriggerLabel>
